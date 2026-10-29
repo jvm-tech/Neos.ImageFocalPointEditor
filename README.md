@@ -14,7 +14,7 @@ In general, the package can be used to provide a two-dimensional coordinate sele
 
 ## Requirements
 
-- Neos UI `^8.4`
+- Neos UI `^8.4` or `^9.0`
 
 ## Installation
 
