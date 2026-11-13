@@ -32,12 +32,16 @@ interface ImageFocalPointEditorProps {
 
 interface ImageFocalPointEditorState {
     image: any | null;
+    pickerRevision: number;
 }
 
 class ImageFocalPointEditor extends PureComponent<ImageFocalPointEditorProps, ImageFocalPointEditorState> {
     state = {
         image: null,
+        pickerRevision: 0,
     };
+
+    committedValue: string | null = null;
 
     updateImageMetadata = (previousImage: any | null) => {
         const {
@@ -72,8 +76,16 @@ class ImageFocalPointEditor extends PureComponent<ImageFocalPointEditorProps, Im
         this.updateImageMetadata(null);
     }
 
-    componentDidUpdate(_: any, prevState: Readonly<ImageFocalPointEditorState>) {
+    componentDidUpdate(prevProps: Readonly<ImageFocalPointEditorProps>, prevState: Readonly<ImageFocalPointEditorState>) {
         this.updateImageMetadata(prevState.image);
+
+        // The picker reads its focal point only on mount. A value that was not set by dragging,
+        // e.g. after "Discard" in the inspector, is therefore applied by remounting the picker.
+        const { value } = this.props;
+        if (value !== prevProps.value && value !== this.committedValue) {
+            this.committedValue = value;
+            this.setState(({ pickerRevision }) => ({ pickerRevision: pickerRevision + 1 }));
+        }
     }
 
     mapThumbnailStylesToCustomProps(thumbnail: Thumbnail): CSSProperties {
@@ -91,7 +103,7 @@ class ImageFocalPointEditor extends PureComponent<ImageFocalPointEditorProps, Im
     render() {
         const { commit, value } = this.props;
 
-        const { image } = this.state;
+        const { image, pickerRevision } = this.state;
         if (image === null) {
             return "Select Image";
         }
@@ -106,14 +118,16 @@ class ImageFocalPointEditor extends PureComponent<ImageFocalPointEditorProps, Im
             <div className={style.wrapper} style={this.mapThumbnailStylesToCustomProps(thumbnail)}>
                 {image && (
                     <ImageFocalPoint
+                        key={pickerRevision}
                         focalPoint={value ? JSON.parse(value) : undefined}
                         src={this.state.image ? this.state.image.previewImageResourceUri : null}
                         classes={classes}
                         onChange={(focalPoint: FocalPoint) => {
-                            commit(JSON.stringify({
+                            this.committedValue = JSON.stringify({
                                 x: Math.floor(focalPoint.x),
                                 y: Math.floor(focalPoint.y),
-                            }));
+                            });
+                            commit(this.committedValue);
                         }}
                     />
                 )}
