@@ -7,9 +7,9 @@
   },
   "devDependencies": {
     "@types/node": "^24.10.13",
-    "@types/react": "^19.2.14",
+    "@types/react": "^17.0.83",
     "@types/react-redux": "^7.1.34",
-    "@neos-project/neos-ui-extensibility": "~9.1.0",
+    "@neos-project/neos-ui-extensibility": "~8.4.0",
     "esbuild": "~0.17.18",
     "esbuild-style-loader": "^0.3.4"
   },
