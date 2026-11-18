@@ -3,6 +3,9 @@ const extensibilityMap = require("@neos-project/neos-ui-extensibility/extensibil
 const isWatch = process.argv.includes('--watch');
 const styleLoader = require('esbuild-style-loader');
 
+// Neos UI 9 no longer exposes plow-js in the host plugin API, so it is bundled instead of aliased.
+const { "plow-js": hostPlowJs, ...alias } = extensibilityMap;
+
 /** @type {import("esbuild").BuildOptions} */
 const options = {
     logLevel: "info",
@@ -14,7 +17,7 @@ const options = {
     // - eg with `@neos` or `@connect` decorators
     loader: { ".js": "tsx" },
     outdir: "../../Public/ImageFocalPointEditor",
-    alias: extensibilityMap,
+    alias,
     legalComments: "none",
     minify: !isWatch,
     plugins: [
