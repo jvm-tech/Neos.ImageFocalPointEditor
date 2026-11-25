@@ -15,24 +15,11 @@
 
 .editorWrapper::before {
   content: '';
-  height: 100%;
-  width: 1000px;
-  background: black;
   position: absolute;
+  inset: 0;
   z-index: 1;
-  right: 100%;
-  top: 0;
-}
-
-.editorWrapper::after {
-  content: '';
-  height: 100%;
-  width: 1000px;
-  background: black;
-  position: absolute;
-  z-index: 1;
-  left: 100%;
-  top: 0;
+  box-shadow: 0 0 0 1000px black;
+  pointer-events: none;
 }
 
 .focalPoint {
