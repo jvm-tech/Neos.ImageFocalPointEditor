@@ -20,9 +20,17 @@ type TruncatedNode = {
     parent: string;
 };
 
+type TransientValue = {
+    value: AssetProperty | string | null;
+    hooks?: Record<string, any>;
+};
+
+const CREATE_IMAGE_VARIANT_HOOK = 'Neos.UI:Hook.BeforeSave.CreateImageVariant';
+
 interface ImageFocalPointEditorProps {
     getNodeByContextPath: (path: string) => TruncatedNode;
     nodeContextPath: string;
+    transientValues: Record<string, TransientValue> | undefined;
     commit: (value: string) => void;
     value: string;
     options: {
@@ -43,29 +51,74 @@ class ImageFocalPointEditor extends PureComponent<ImageFocalPointEditorProps, Im
 
     committedValue: string | null = null;
 
-    updateImageMetadata = (previousImage: any | null) => {
+    requestedIdentity: string | null = null;
+
+    isUnmounted = false;
+
+    resolveImageSource = (): { metadata: any } | { identity: string | null } | null => {
         const {
             getNodeByContextPath,
             nodeContextPath,
+            transientValues,
         } = this.props;
         let { options: { imageProperty } } = this.props;
-        const { loadImageMetadata } = backend.get().endpoints;
         let node = getNodeByContextPath(nodeContextPath);
 
         if (!node) {
-            return;
+            return null;
         }
 
-        if (imageProperty.startsWith('parent:')) {
+        const isParentProperty = imageProperty.startsWith('parent:');
+        if (isParentProperty) {
             imageProperty = imageProperty.replace('parent:', '');
-            node = getNodeByContextPath(node.parent)
+            node = getNodeByContextPath(node.parent);
+            if (!node) {
+                return null;
+            }
         }
 
-        if (!node || !node.properties[imageProperty] || !node.properties[imageProperty].__identity) {
+        const pending = isParentProperty ? undefined : transientValues?.[imageProperty];
+        if (pending?.hooks?.[CREATE_IMAGE_VARIANT_HOOK]) {
+            return { metadata: pending.hooks[CREATE_IMAGE_VARIANT_HOOK] };
+        }
+
+        const value = pending ? pending.value : node.properties[imageProperty];
+        const identity = value && typeof value === 'object' ? value.__identity : null;
+
+        return { identity: identity || null };
+    };
+
+    updateImageMetadata = () => {
+        const source = this.resolveImageSource();
+        if (source === null) {
             return;
         }
-        loadImageMetadata(node.properties[imageProperty].__identity).then((image) => {
-            if (previousImage && previousImage.object.__identity === image.object.__identity) {
+
+        if ('metadata' in source) {
+            this.requestedIdentity = null;
+            if (this.state.image !== source.metadata) {
+                this.setState({ image: source.metadata });
+            }
+            return;
+        }
+
+        const { identity } = source;
+        if (identity === null) {
+            this.requestedIdentity = null;
+            if (this.state.image !== null) {
+                this.setState({ image: null });
+            }
+            return;
+        }
+
+        if (identity === this.requestedIdentity) {
+            return;
+        }
+
+        this.requestedIdentity = identity;
+        const { loadImageMetadata } = backend.get().endpoints;
+        loadImageMetadata(identity).then((image: any) => {
+            if (this.isUnmounted || this.requestedIdentity !== identity) {
                 return;
             }
             this.setState({ image });
@@ -73,11 +126,15 @@ class ImageFocalPointEditor extends PureComponent<ImageFocalPointEditorProps, Im
     };
 
     componentDidMount() {
-        this.updateImageMetadata(null);
+        this.updateImageMetadata();
     }
 
-    componentDidUpdate(prevProps: Readonly<ImageFocalPointEditorProps>, prevState: Readonly<ImageFocalPointEditorState>) {
-        this.updateImageMetadata(prevState.image);
+    componentWillUnmount() {
+        this.isUnmounted = true;
+    }
+
+    componentDidUpdate(prevProps: Readonly<ImageFocalPointEditorProps>) {
+        this.updateImageMetadata();
 
         // The picker reads its focal point only on mount. A value that was not set by dragging,
         // e.g. after "Discard" in the inspector, is therefore applied by remounting the picker.
@@ -139,5 +196,6 @@ class ImageFocalPointEditor extends PureComponent<ImageFocalPointEditorProps, Im
 export default connect((state: any) => ({
     nodeContextPath: selectors.CR.Nodes.focusedNodePathSelector(state),
     getNodeByContextPath: selectors.CR.Nodes.nodeByContextPath(state),
+    transientValues: selectors.UI.Inspector.transientValues(state),
 }))(ImageFocalPointEditor)
 
